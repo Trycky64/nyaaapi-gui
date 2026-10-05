@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from nyaaapi import Torrent
+from nyaaapi import Torrent, TorrentDetails
 from PySide6.QtCore import QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
@@ -71,6 +71,31 @@ class DetailsPanel(QWidget):
         self.text.setPlainText("\n".join(f"{key}: {value}" for key, value in fields.items()))
         for button in self.action_buttons:
             button.setEnabled(True)
+
+    def show_full_details(self, details: TorrentDetails | Torrent) -> None:
+        """Replace the result preview with on-demand full torrent metadata."""
+        torrent = details.data if isinstance(details, TorrentDetails) else details
+        self.show_torrent(torrent)
+        fields = {
+            "Title": torrent.title,
+            "Uploader": torrent.uploader or "Unknown",
+            "Category": torrent.category,
+            "Size": torrent.size,
+            "Info hash": torrent.infohash or "Unknown",
+            "Information": torrent.information or "Unknown",
+            "Seeders": str(torrent.seeders),
+            "Leechers": str(torrent.leechers),
+            "Downloads": str(torrent.downloads),
+            "Date": torrent.time.isoformat(sep=" ") if torrent.time else "Unknown",
+            "Magnet": torrent.magnet,
+            "Torrent URL": torrent.torrent,
+        }
+        if torrent.comments is not None:
+            fields["Comments"] = (
+                "\n".join(f"{comment.user}: {comment.comment_body}" for comment in torrent.comments)
+                or "None"
+            )
+        self.text.setPlainText("\n".join(f"{key}: {value}" for key, value in fields.items()))
 
     def copy_magnet(self) -> None:
         """Copy the selected magnet only after a user action."""

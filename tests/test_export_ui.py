@@ -9,7 +9,9 @@ from nyaaapi_gui.main_window import MainWindow
 
 
 def test_copy_selected_and_visible_magnets(qtbot) -> None:
-    window = MainWindow(Mock())
+    service = Mock()
+    service.get_torrent.return_value = torrent("A")
+    window = MainWindow(service)
     qtbot.addWidget(window)
     first, second = torrent("A"), torrent("B")
     window.results.set_torrents([first, second])

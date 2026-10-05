@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from PySide6.QtCore import Qt, QThreadPool
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
@@ -43,6 +45,8 @@ class MainWindow(QMainWindow):
         self.service = service or NyaaService(timeout=self.app_settings.api_timeout)
         self._owns_service = service is None
         self._active_worker: SearchWorker | None = None
+        self._detail_worker: SearchWorker | None = None
+        self._current_source = self.app_settings.source
         self.thread_pool = QThreadPool.globalInstance()
         self._all_torrents = []
         self._qbit_config: QBittorrentConfig | None = None
@@ -102,7 +106,7 @@ class MainWindow(QMainWindow):
                 bool(self.results.selected_torrents()) and self._qbit_config is not None
             )
         )
-        self.results.torrentSelected.connect(self.details.show_torrent)
+        self.results.torrentSelected.connect(self._on_torrent_selected)
         self.results.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.results.table.customContextMenuRequested.connect(self.show_results_context_menu)
         self._install_shortcuts()
@@ -112,11 +116,37 @@ class MainWindow(QMainWindow):
         self.search_panel.filtersChanged.connect(self.apply_local_filters)
         self.best_release_button.clicked.connect(self.select_best_release)
 
+    def _on_torrent_selected(self, torrent) -> None:
+        self.details.show_torrent(torrent)
+        if torrent is None:
+            return
+        match = re.search(r"/view/(\d+)(?:$|[/?#])", torrent.link)
+        if match is None:
+            self.status.set_state("Full details are not available for this result")
+            return
+        if self._detail_worker is not None:
+            return
+        worker = SearchWorker(
+            self.service.get_torrent,
+            torrent_id=int(match.group(1)),
+            source=self._current_source,
+        )
+        self._detail_worker = worker
+        worker.signals.result.connect(self.details.show_full_details)
+        worker.signals.error.connect(lambda error: self.status.set_state(str(error)))
+        worker.signals.started.connect(lambda: self.status.set_state("Loading torrent details..."))
+        worker.signals.finished.connect(self._detail_finished)
+        self.thread_pool.start(worker)
+
+    def _detail_finished(self) -> None:
+        self._detail_worker = None
+
     def start_search(self, values: dict[str, object] | None = None) -> None:
         """Run the current search in the global Qt thread pool."""
         if self._active_worker is not None:
             return
         options = values or self.search_panel.values()
+        self._current_source = str(options.get("source", "nyaa"))
         kwargs = {
             "query": options.get("query"),
             "source": options.get("source", "nyaa"),
