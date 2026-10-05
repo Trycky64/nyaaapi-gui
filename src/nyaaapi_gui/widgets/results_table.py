@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from nyaaapi import Torrent
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QLabel,
+    QStackedWidget,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from nyaaapi_gui.models.release_info import parse_release_title
 
@@ -19,7 +26,7 @@ class SortableItem(QTableWidgetItem):
 
 
 class ResultsTable(QWidget):
-    """Resizable, sortable table of torrents."""
+    """Resizable, sortable table of torrents with multi-row selection."""
 
     torrentSelected = Signal(object)
 
@@ -32,22 +39,33 @@ class ResultsTable(QWidget):
         "Downloads",
         "Date/Time",
         "Uploader",
+        "Season",
+        "Episode",
     )
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.table = QTableWidget(0, len(self.COLUMNS))
         self._recommended_title: str | None = None
+        self.table = QTableWidget(0, len(self.COLUMNS))
         self.table.setHorizontalHeaderLabels(list(self.COLUMNS))
         self.table.setSortingEnabled(True)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.empty_label = QLabel("No results")
+        self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.stack = QStackedWidget()
+        self.stack.addWidget(self.empty_label)
+        self.stack.addWidget(self.table)
         self.table.itemSelectionChanged.connect(self._selection_changed)
         self.table.cellDoubleClicked.connect(self._double_clicked)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.table)
+        layout.addWidget(self.stack)
+
+    def set_empty_message(self, message: str) -> None:
+        """Set the empty-state text shown when there are no rows."""
+        self.empty_label.setText(message)
 
     def set_recommended(self, torrent: Torrent | None) -> None:
         """Highlight the recommended release row."""
@@ -67,6 +85,7 @@ class ResultsTable(QWidget):
         """Replace table rows with torrent objects."""
         self.table.setSortingEnabled(False)
         self.table.setRowCount(len(torrents))
+        self.stack.setCurrentWidget(self.table if torrents else self.empty_label)
         for row, torrent in enumerate(torrents):
             date_text = torrent.time.isoformat(sep=" ") if torrent.time else ""
             release = parse_release_title(torrent.title)

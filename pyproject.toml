@@ -29,6 +29,9 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+nyaaapi_gui = ["resources/*.svg"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--strict-markers --cov=nyaaapi_gui --cov-report=term-missing"

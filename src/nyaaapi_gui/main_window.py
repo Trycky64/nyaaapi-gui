@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QThreadPool
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QMainWindow,
+    QMenu,
     QPushButton,
     QSplitter,
     QTabWidget,
@@ -45,6 +47,11 @@ class MainWindow(QMainWindow):
         self._all_torrents = []
         self._qbit_config: QBittorrentConfig | None = None
         self.setWindowTitle("NyaaAPI GUI")
+        from importlib.resources import files
+
+        from PySide6.QtGui import QIcon
+
+        self.setWindowIcon(QIcon(str(files("nyaaapi_gui").joinpath("resources/icon.svg"))))
         self.setMinimumSize(1024, 680)
         self.search_panel = SearchPanel()
         self._apply_settings_to_controls(self.app_settings)
@@ -96,6 +103,9 @@ class MainWindow(QMainWindow):
             )
         )
         self.results.torrentSelected.connect(self.details.show_torrent)
+        self.results.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.results.table.customContextMenuRequested.connect(self.show_results_context_menu)
+        self._install_shortcuts()
         self.search_panel.searchRequested.connect(self.start_search)
         self.season_panel.searchRequested.connect(self.start_season_search)
         self.search_panel.resetRequested.connect(self.reset_results)
@@ -175,6 +185,52 @@ class MainWindow(QMainWindow):
             end_episode=end_episode,
             preferences=preferences,
         )
+
+    def _install_shortcuts(self) -> None:
+        search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
+        search_shortcut.activated.connect(self.focus_search)
+        copy_shortcut = QShortcut(QKeySequence.Copy, self)
+        copy_shortcut.activated.connect(self.copy_selected_magnets_or_title)
+        escape_shortcut = QShortcut(QKeySequence("Escape"), self)
+        escape_shortcut.activated.connect(self.clear_or_cancel)
+
+    def focus_search(self) -> None:
+        """Focus the query field and select its existing text."""
+        self.search_tabs.setCurrentWidget(self.search_panel)
+        self.query_input.setFocus()
+        self.query_input.selectAll()
+
+    def copy_selected_magnets_or_title(self) -> None:
+        """Copy selected magnets, falling back to the current selected title."""
+        if self.results.selected_torrents():
+            self.copy_selected_magnets()
+        else:
+            self.copy_current_title()
+
+    def clear_or_cancel(self) -> None:
+        """Clear the current query and filters when no request is in flight."""
+        if self._active_worker is None:
+            self.search_panel._reset()
+            self.search_tabs.setCurrentWidget(self.search_panel)
+        else:
+            self.status.set_state("The current request cannot be cancelled safely")
+
+    def create_results_context_menu(self) -> QMenu:
+        """Build context actions for selected result rows."""
+        menu = QMenu(self)
+        copy_magnets = menu.addAction("Copy selected magnets")
+        copy_magnets.triggered.connect(self.copy_selected_magnets)
+        copy_title = menu.addAction("Copy title")
+        copy_title.triggered.connect(self.copy_current_title)
+        menu.addSeparator()
+        open_magnet = menu.addAction("Open magnet")
+        open_magnet.triggered.connect(self.details.open_magnet)
+        open_torrent = menu.addAction("Open torrent URL")
+        open_torrent.triggered.connect(self.details.open_torrent_url)
+        return menu
+
+    def show_results_context_menu(self, position) -> None:
+        self.create_results_context_menu().exec(self.results.table.viewport().mapToGlobal(position))
 
     def reset_results(self) -> None:
         """Clear search rows and details after the search form resets."""
