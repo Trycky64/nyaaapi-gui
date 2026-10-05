@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QLineEdit, QMainWindow, QPushButton, QTableWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QLineEdit,
+    QMainWindow,
+    QPushButton,
+    QTableWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class MainWindow(QMainWindow):
@@ -11,7 +18,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("NyaaAPI GUI")
         self.setMinimumSize(760, 480)
         self.query_input = QLineEdit()
-        self.query_input.setPlaceholderText("Search torrents…")
+        self.query_input.setPlaceholderText("Search torrents...")
         self.query_input.setObjectName("queryInput")
         self.search_button = QPushButton("Search")
         self.search_button.setObjectName("searchButton")

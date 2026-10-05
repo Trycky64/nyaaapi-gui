@@ -9,7 +9,7 @@ def test_application_window_starts(qtbot) -> None:
     qtbot.addWidget(window)
     window.show()
     assert window.windowTitle() == "NyaaAPI GUI"
-    assert window.query_input.placeholderText() == "Search torrents?"
+    assert window.query_input.placeholderText() == "Search torrents..."
     assert window.results.rowCount() == 0
 
 
@@ -17,6 +17,10 @@ def test_main_constructs_and_runs_app(monkeypatch) -> None:
     seen: dict[str, object] = {}
 
     class FakeApplication:
+        @staticmethod
+        def instance() -> None:
+            return None
+
         def __init__(self, args: list[str]) -> None:
             seen["args"] = args
 
