@@ -37,6 +37,7 @@ class ResultsTable(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.table = QTableWidget(0, len(self.COLUMNS))
+        self._recommended_title: str | None = None
         self.table.setHorizontalHeaderLabels(list(self.COLUMNS))
         self.table.setSortingEnabled(True)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -47,6 +48,16 @@ class ResultsTable(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.table)
+
+    def set_recommended(self, torrent: Torrent | None) -> None:
+        """Highlight the recommended release row."""
+        self._recommended_title = torrent.title if torrent else None
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            if item is not None:
+                font = item.font()
+                font.setBold(item.text() == self._recommended_title)
+                item.setFont(font)
 
     def rowCount(self) -> int:
         """Return the number of visible result rows."""
@@ -75,6 +86,10 @@ class ResultsTable(QWidget):
                 item = SortableItem(display)
                 item.setData(Qt.ItemDataRole.UserRole, sort_value)
                 item.setData(Qt.ItemDataRole.UserRole + 1, torrent)
+                if column == 0 and torrent.title == self._recommended_title:
+                    font = item.font()
+                    font.setBold(True)
+                    item.setFont(font)
                 self.table.setItem(row, column, item)
         self.table.setSortingEnabled(True)
 

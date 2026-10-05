@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QThreadPool
-from PySide6.QtWidgets import QMainWindow, QSplitter, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QMainWindow, QPushButton, QSplitter, QVBoxLayout, QWidget
 
 from .models.filters import filter_torrents
+from .models.ranking import best_release, preferences_from_filters
 from .services.nyaa_service import NyaaService
 from .widgets.details_panel import DetailsPanel
 from .widgets.results_table import ResultsTable
@@ -27,6 +28,8 @@ class MainWindow(QMainWindow):
         self.search_panel = SearchPanel()
         self.query_input = self.search_panel.query_input
         self.search_button = self.search_panel.search_button
+        self.best_release_button = QPushButton("Best Release")
+        self.search_panel.layout().addRow(self.best_release_button)
         self.results = ResultsTable()
         self.details = DetailsPanel()
         splitter = QSplitter()
@@ -46,6 +49,7 @@ class MainWindow(QMainWindow):
         self.search_panel.searchRequested.connect(self.start_search)
         self.search_panel.resetRequested.connect(self.reset_results)
         self.search_panel.filtersChanged.connect(self.apply_local_filters)
+        self.best_release_button.clicked.connect(self.select_best_release)
 
     def start_search(self, values: dict[str, object] | None = None) -> None:
         """Run the current search in the global Qt thread pool."""
@@ -93,6 +97,16 @@ class MainWindow(QMainWindow):
         if self._all_torrents and not visible:
             self.status.set_state("No results match the local filters")
         return visible
+
+    def select_best_release(self) -> None:
+        """Rank the current local results and highlight the recommended row."""
+        candidates = filter_torrents(self._all_torrents, self.search_panel.filter_options())
+        selected = best_release(
+            candidates, preferences_from_filters(self.search_panel.filter_options())
+        )
+        self.results.set_recommended(selected)
+        if selected is not None:
+            self.status.set_state(f"Best release: {selected.title}")
 
     def copy_current_title(self) -> bool:
         """Copy the selected torrent title to the system clipboard."""
