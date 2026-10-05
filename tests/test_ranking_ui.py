@@ -13,6 +13,7 @@ def test_best_release_button_highlights_recommendation(qtbot) -> None:
         torrent("Show 720p MULTi", 100),
         torrent("Show 1080p VOSTFR", 10),
     ]
+    service.get_torrent.return_value = torrent("Show 1080p VOSTFR", 10)
     window = MainWindow(service)
     qtbot.addWidget(window)
     window.start_search({"query": "show"})
@@ -25,3 +26,4 @@ def test_best_release_button_highlights_recommendation(qtbot) -> None:
         if window.results.table.item(row, 0).font().bold()
     )
     assert recommended is not None and "1080p" in recommended.title
+    assert window.results.selected_torrents() == [recommended]

@@ -63,6 +63,8 @@ Select one or more rows to copy magnets or export JSON/CSV. **Copy all visible m
 
 Install the `release` extra, open **Configure qBittorrent**, and provide its Web API host, port, username, password and optional save path. The password field is masked and is not written to `QSettings`. Select results and choose **Send selected to qBittorrent**. The app never sends a torrent before the user invokes this action.
 
+In Season mode, use **Send season to qBittorrent** to add all currently found episodes in episode order.
+
 ## Settings and shortcuts
 
 The Settings dialog remembers the default source, preferred resolution and language, MULTi and seeders filters, favorite uploader, maximum pages and API timeout. **Reset Defaults** restores the initial preferences.

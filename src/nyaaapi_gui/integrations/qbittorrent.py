@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,7 +65,7 @@ def _default_client_factory(**kwargs: object) -> Any:
         raise QBittorrentError(
             "Install the optional release extra to enable qBittorrent support."
         ) from error
-    return Client(**kwargs)
+    return cast(Any, Client)(**kwargs)
 
 
 def _safe_message(error: Exception, password: str = "") -> str:

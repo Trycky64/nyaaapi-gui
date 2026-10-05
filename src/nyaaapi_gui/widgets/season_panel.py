@@ -20,6 +20,7 @@ class SeasonPanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.anime_input = QLineEdit()
+        self.anime_input.setToolTip("Anime title used to find releases for this season")
         self.season_input = QSpinBox()
         self.season_input.setRange(1, 99)
         self.uploader_input = QLineEdit()
@@ -34,6 +35,11 @@ class SeasonPanel(QWidget):
         self.end_episode.setRange(1, 999)
         self.end_episode.setValue(24)
         self.search_button = QPushButton("Search season")
+        self.send_season_button = QPushButton("Send season to qBittorrent")
+        self.send_season_button.setEnabled(False)
+        self.send_season_button.setToolTip(
+            "Send all found episodes in episode order (requires qBittorrent settings)"
+        )
         self.summary = QLabel("No season search yet")
         self.missing_label = QLabel("")
         self.missing_label.setWordWrap(True)
@@ -46,6 +52,7 @@ class SeasonPanel(QWidget):
         form.addRow("First episode", self.start_episode)
         form.addRow("Last episode", self.end_episode)
         form.addRow(self.search_button)
+        form.addRow(self.send_season_button)
         form.addRow(self.summary)
         form.addRow(self.missing_label)
         self.search_button.clicked.connect(self._emit_search)

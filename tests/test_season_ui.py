@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 from test_widgets import torrent
 
+from nyaaapi_gui.integrations.qbittorrent import QBittorrentConfig
 from nyaaapi_gui.main_window import MainWindow
 
 
@@ -24,3 +25,18 @@ def test_season_search_uses_uploader_and_displays_found_and_missing(qtbot) -> No
     assert window.season_panel.summary.text() == "Season 3: 2 / 24 episodes found so far"
     assert "S03E02" in window.season_panel.missing_label.text()
     assert window.results.rowCount() == 2
+
+
+def test_send_season_uses_episode_order(qtbot) -> None:
+    service = Mock()
+    window = MainWindow(service)
+    qtbot.addWidget(window)
+    window._qbit_config = QBittorrentConfig()
+    first = torrent("Show S03E01 1080p VOSTFR")
+    third = torrent("Show S03E03 1080p VOSTFR")
+    window._all_torrents = [third, first]
+    window._send_to_qbittorrent = Mock()
+
+    window.send_season_to_qbittorrent()
+
+    window._send_to_qbittorrent.assert_called_once_with([first.magnet, third.magnet])

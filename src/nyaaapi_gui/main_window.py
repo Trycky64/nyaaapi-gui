@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from .integrations.qbittorrent import QBittorrentConfig, QBittorrentService
 from .models.filters import filter_torrents
 from .models.ranking import RankingPreferences, best_release, preferences_from_filters
+from .models.release_info import parse_release_title
 from .models.season import SeasonPlan, build_season_plan
 from .models.settings import AppSettings, SettingsStore
 from .services.exports import export_csv, export_json, export_magnets
@@ -69,6 +70,9 @@ class MainWindow(QMainWindow):
         self.query_input = self.search_panel.query_input
         self.search_button = self.search_panel.search_button
         self.best_release_button = QPushButton("Best Release")
+        self.best_release_button.setToolTip(
+            "Rank visible results and select the highest-ranked release"
+        )
         self.search_panel.form_layout.addRow(self.best_release_button)
         self.results = ResultsTable()
         self.details = DetailsPanel()
@@ -98,6 +102,12 @@ class MainWindow(QMainWindow):
         self.refresh_action.triggered.connect(self.refresh_search)
         self.qbit_config_action = toolbar.addAction("Configure qBittorrent")
         self.qbit_send_action = toolbar.addAction("Send selected to qBittorrent")
+        self.qbit_config_action.setToolTip(
+            "Configure an optional qBittorrent connection for this session"
+        )
+        self.qbit_send_action.setToolTip(
+            "Send selected torrents to the configured qBittorrent client"
+        )
         self.qbit_send_action.setEnabled(False)
         self.copy_selected_action.triggered.connect(self.copy_selected_magnets)
         self.copy_visible_action.triggered.connect(self.copy_visible_magnets)
@@ -117,6 +127,7 @@ class MainWindow(QMainWindow):
         self._install_shortcuts()
         self.search_panel.searchRequested.connect(self.start_search)
         self.season_panel.searchRequested.connect(self.start_season_search)
+        self.season_panel.send_season_button.clicked.connect(self.send_season_to_qbittorrent)
         self.search_panel.resetRequested.connect(self.reset_results)
         self.search_panel.filtersChanged.connect(self.apply_local_filters)
         self.best_release_button.clicked.connect(self.select_best_release)
@@ -309,6 +320,10 @@ class MainWindow(QMainWindow):
         )
         self.results.set_recommended(selected)
         if selected is not None:
+            for row in range(self.results.rowCount()):
+                if self.results.torrent_at(row) == selected:
+                    self.results.table.selectRow(row)
+                    break
             self.status.set_state(f"Best release: {selected.title}")
 
     def copy_selected_magnets(self) -> int:
@@ -397,6 +412,7 @@ class MainWindow(QMainWindow):
             return False
         self._qbit_config = dialog.config()
         self.qbit_send_action.setEnabled(bool(self.results.selected_torrents()))
+        self.season_panel.send_season_button.setEnabled(bool(self._all_torrents))
         self.status.set_state("qBittorrent configured for this session")
         return True
 
@@ -408,6 +424,28 @@ class MainWindow(QMainWindow):
         magnets = [torrent.magnet for torrent in self.results.selected_torrents()]
         if not magnets:
             self.status.set_state("Select at least one result")
+            return
+        self._send_to_qbittorrent(magnets)
+
+    def send_season_to_qbittorrent(self) -> None:
+        """Send every season result in episode order to qBittorrent."""
+        if self._qbit_config is None:
+            self.status.set_state("Configure qBittorrent first")
+            return
+        if not self._all_torrents:
+            self.status.set_state("Search a season first")
+            return
+        torrents = sorted(
+            self._all_torrents,
+            key=lambda torrent: (
+                parse_release_title(torrent.title).episode or 0, torrent.title.casefold()
+            ),
+        )
+        self._send_to_qbittorrent([torrent.magnet for torrent in torrents])
+
+    def _send_to_qbittorrent(self, magnets: list[str]) -> None:
+        if self._qbit_config is None:
+            self.status.set_state("Configure qBittorrent first")
             return
         service = QBittorrentService(self._qbit_config)
         self.qbit_send_action.setEnabled(False)
@@ -450,6 +488,9 @@ class MainWindow(QMainWindow):
                 results.expected_count,
                 results.season,
                 results.missing_episodes,
+            )
+            self.season_panel.send_season_button.setEnabled(
+                self._qbit_config is not None and bool(results.torrents)
             )
             self.status.set_count(len(results.episodes))
             self.status.set_state("Season results updated")

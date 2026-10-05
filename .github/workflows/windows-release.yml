@@ -1,0 +1,31 @@
+﻿name: Windows portable build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install release dependencies
+        run: python -m pip install -e ".[release]"
+      - name: Build portable application
+        run: pyinstaller --clean --noconfirm nyaaapi-gui.spec
+      - name: Create ZIP
+        shell: pwsh
+        run: Compress-Archive -Path dist/NyaaAPI-GUI/* -DestinationPath dist/NyaaAPI-GUI-windows-x64.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NyaaAPI-GUI-windows-x64
+          path: dist/NyaaAPI-GUI-windows-x64.zip
+          if-no-files-found: error
