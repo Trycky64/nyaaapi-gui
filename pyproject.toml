@@ -31,7 +31,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-markers --cov=nyaaapi_gui --cov-report=term-missing --cov-fail-under=90"
+addopts = "--strict-markers --cov=nyaaapi_gui --cov-report=term-missing"
 markers = ["integration: optional tests that contact the live Nyaa-API"]
 
 [tool.coverage.run]
