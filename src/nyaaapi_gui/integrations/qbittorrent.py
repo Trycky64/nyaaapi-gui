@@ -55,7 +55,7 @@ class QBittorrentService:
                 sent += 1
             return sent
         except Exception as error:
-            raise QBittorrentError(_safe_message(error)) from error
+            raise QBittorrentError(_safe_message(error, self.config.password)) from error
 
 
 def _default_client_factory(**kwargs: object) -> Any:
@@ -68,6 +68,8 @@ def _default_client_factory(**kwargs: object) -> Any:
     return Client(**kwargs)
 
 
-def _safe_message(error: Exception) -> str:
+def _safe_message(error: Exception, password: str = "") -> str:
     message = str(error)
+    if password:
+        message = message.replace(password, "[redacted]")
     return message or "Could not connect to qBittorrent. Check the host and credentials."

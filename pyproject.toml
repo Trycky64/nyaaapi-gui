@@ -34,7 +34,7 @@ nyaaapi_gui = ["resources/*.svg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-markers --cov=nyaaapi_gui --cov-report=term-missing"
+addopts = "--strict-markers --cov=nyaaapi_gui --cov-report=term-missing --cov-fail-under=90"
 markers = ["integration: optional tests that contact the live Nyaa-API"]
 
 [tool.coverage.run]
