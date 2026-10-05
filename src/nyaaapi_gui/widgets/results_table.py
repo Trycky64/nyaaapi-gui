@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from nyaaapi import Torrent
 from PySide6.QtCore import Qt, Signal
@@ -21,7 +21,9 @@ class ResultsTable(QWidget):
 
     torrentSelected = Signal(object)
 
-    COLUMNS = ("Title", "Category", "Size", "Seeders", "Leechers", "Downloads", "Date/Time", "Uploader")
+    COLUMNS = (
+        "Title", "Category", "Size", "Seeders", "Leechers", "Downloads", "Date/Time", "Uploader"
+    )
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -36,6 +38,10 @@ class ResultsTable(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.table)
+
+    def rowCount(self) -> int:
+        """Return the number of visible result rows."""
+        return self.table.rowCount()
 
     def set_torrents(self, torrents: tuple[Torrent, ...] | list[Torrent]) -> None:
         """Replace table rows with torrent objects."""
@@ -67,7 +73,11 @@ class ResultsTable(QWidget):
 
     def visible_torrents(self) -> list[Torrent]:
         """Return torrents in the current visible sort order."""
-        return [torrent for row in range(self.table.rowCount()) if (torrent := self.torrent_at(row))]
+        return [
+            torrent
+            for row in range(self.table.rowCount())
+            if (torrent := self.torrent_at(row)) is not None
+        ]
 
     def torrent_at(self, row: int) -> Torrent | None:
         item = self.table.item(row, 0)

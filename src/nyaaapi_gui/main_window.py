@@ -1,5 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMainWindow, QSplitter, QVBoxLayout, QWidget
 
 from .widgets.details_panel import DetailsPanel
@@ -21,7 +22,7 @@ class MainWindow(QMainWindow):
         self.results = ResultsTable()
         self.details = DetailsPanel()
         splitter = QSplitter()
-        splitter.setOrientation(__import__("PySide6.QtCore", fromlist=["Qt"]).Qt.Orientation.Vertical)
+        splitter.setOrientation(Qt.Orientation.Vertical)
         splitter.addWidget(self.results)
         splitter.addWidget(self.details)
         splitter.setSizes([440, 180])

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
@@ -20,6 +20,7 @@ class SearchPanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.query_input = QLineEdit()
+        self.query_input.setPlaceholderText("Search torrents...")
         self.query_input.setObjectName("queryInput")
         self.source_combo = QComboBox()
         self.source_combo.addItem("Nyaa", "nyaa")
