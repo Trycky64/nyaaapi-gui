@@ -22,7 +22,14 @@ class ResultsTable(QWidget):
     torrentSelected = Signal(object)
 
     COLUMNS = (
-        "Title", "Category", "Size", "Seeders", "Leechers", "Downloads", "Date/Time", "Uploader"
+        "Title",
+        "Category",
+        "Size",
+        "Seeders",
+        "Leechers",
+        "Downloads",
+        "Date/Time",
+        "Uploader",
     )
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -107,7 +114,6 @@ def _size_bytes(text: str) -> float:
         amount = float(parts[0])
     except ValueError:
         return 0
-    units = {"B": 0, "KB": 1, "MB": 2, "GB": 3, "TB": 4, "KiB": 1, "MiB": 2,
-             "GiB": 3, "TiB": 4}
+    units = {"B": 0, "KB": 1, "MB": 2, "GB": 3, "TB": 4, "KiB": 1, "MiB": 2, "GiB": 3, "TiB": 4}
     unit = parts[1] if len(parts) > 1 else "B"
     return amount * (1024 ** units.get(unit.upper(), 0))

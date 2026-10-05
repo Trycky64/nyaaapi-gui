@@ -1,1 +1,1 @@
-﻿# pyright: reportUnknownParameterType=false
+# pyright: reportUnknownParameterType=false

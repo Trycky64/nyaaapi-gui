@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from nyaaapi import Torrent
 from PySide6.QtCore import QUrl, Signal

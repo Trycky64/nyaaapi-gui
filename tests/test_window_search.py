@@ -10,10 +10,17 @@ from nyaaapi_gui.main_window import MainWindow
 
 def torrent(title: str) -> Torrent:
     return Torrent(
-        category="Anime", title=title, link="https://nyaa.si/view/1",
-        torrent="https://nyaa.si/download/1.torrent", magnet="magnet:?xt=urn:btih:abc",
-        size="1 GiB", time=datetime(2025, 1, 1, tzinfo=UTC), seeders=10,
-        leechers=2, downloads=5, uploader="Uploader",
+        category="Anime",
+        title=title,
+        link="https://nyaa.si/view/1",
+        torrent="https://nyaa.si/download/1.torrent",
+        magnet="magnet:?xt=urn:btih:abc",
+        size="1 GiB",
+        time=datetime(2025, 1, 1, tzinfo=UTC),
+        seeders=10,
+        leechers=2,
+        downloads=5,
+        uploader="Uploader",
     )
 
 

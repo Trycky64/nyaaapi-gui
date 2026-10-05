@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from unittest.mock import Mock
 
@@ -15,8 +15,13 @@ def test_search_routes_through_backend() -> None:
     service = NyaaService(api)
     assert service.search("Mushoku Tensei", source="sukebei", page=3) is expected
     api.search.assert_called_once_with(
-        "Mushoku Tensei", source="sukebei", category=None, sub_category=None,
-        sort=None, order=None, page=3,
+        "Mushoku Tensei",
+        source="sukebei",
+        category=None,
+        sub_category=None,
+        sort=None,
+        order=None,
+        page=3,
     )
 
 
@@ -40,8 +45,11 @@ def test_iterators_route_through_backend() -> None:
 
 @pytest.mark.parametrize(
     ("error_type", "kind"),
-    [(NyaaAPIRateLimitError, "rate_limit"), (NyaaAPINotFoundError, "not_found"),
-     (NyaaAPIHTTPError, "http")],
+    [
+        (NyaaAPIRateLimitError, "rate_limit"),
+        (NyaaAPINotFoundError, "not_found"),
+        (NyaaAPIHTTPError, "http"),
+    ],
 )
 def test_api_errors_are_safe_and_typed(error_type, kind: str) -> None:
     api = Mock()

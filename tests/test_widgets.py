@@ -8,10 +8,17 @@ from PySide6.QtCore import Qt
 
 def torrent(title: str = "Show S03E02 1080p VOSTFR", seeders: int = 5) -> Torrent:
     return Torrent(
-        category="Anime - English-translated", title=title, link="https://nyaa.si/view/1",
-        torrent="https://nyaa.si/download/1.torrent", magnet="magnet:?xt=urn:btih:abc",
-        size="1.5 GiB", time=datetime(2025, 1, 1, tzinfo=UTC), seeders=seeders,
-        leechers=2, downloads=10, uploader="Fansub",
+        category="Anime - English-translated",
+        title=title,
+        link="https://nyaa.si/view/1",
+        torrent="https://nyaa.si/download/1.torrent",
+        magnet="magnet:?xt=urn:btih:abc",
+        size="1.5 GiB",
+        time=datetime(2025, 1, 1, tzinfo=UTC),
+        seeders=seeders,
+        leechers=2,
+        downloads=10,
+        uploader="Fansub",
     )
 
 

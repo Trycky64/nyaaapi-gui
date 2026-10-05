@@ -4,6 +4,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
+    QLabel,
     QLineEdit,
     QPushButton,
     QSpinBox,
@@ -27,6 +28,9 @@ class SearchPanel(QWidget):
         self.source_combo.addItem("Sukebei", "sukebei")
         self.uploader_input = QLineEdit()
         self.uploader_input.setObjectName("uploaderInput")
+        self.uploader_input.setPlaceholderText("Optional; searches this uploader")
+        self.mode_label = QLabel("Search mode: Global")
+        self.uploader_input.textChanged.connect(self._update_mode)
         self.category_input = QLineEdit()
         self.subcategory_input = QLineEdit()
         self.sort_combo = QComboBox()
@@ -46,6 +50,7 @@ class SearchPanel(QWidget):
         form.addRow("Query", self.query_input)
         form.addRow("Source", self.source_combo)
         form.addRow("Uploader", self.uploader_input)
+        form.addRow(self.mode_label)
         form.addRow("Category", self.category_input)
         form.addRow("Sub-category", self.subcategory_input)
         form.addRow("Sort", self.sort_combo)
@@ -68,6 +73,11 @@ class SearchPanel(QWidget):
             "order": self.order_combo.currentData(),
             "page": self.page_input.value(),
         }
+
+    def _update_mode(self, uploader: str) -> None:
+        self.mode_label.setText(
+            "Search mode: Uploader" if uploader.strip() else "Search mode: Global"
+        )
 
     def _emit_search(self) -> None:
         self.searchRequested.emit(self.values())

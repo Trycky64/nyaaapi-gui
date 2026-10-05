@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from PySide6.QtCore import Qt, QThreadPool
 from PySide6.QtWidgets import QMainWindow, QSplitter, QVBoxLayout, QWidget
@@ -58,7 +58,13 @@ class MainWindow(QMainWindow):
             "order": options.get("order"),
             "page": options.get("page", 1),
         }
-        worker = SearchWorker(self.service.search, **kwargs)
+        uploader = str(options.get("uploader") or "").strip()
+        if uploader:
+            kwargs["user_name"] = uploader
+            operation = self.service.search_user
+        else:
+            operation = self.service.search
+        worker = SearchWorker(operation, **kwargs)
         self._active_worker = worker
         worker.signals.started.connect(self._search_started)
         worker.signals.result.connect(self._search_succeeded)

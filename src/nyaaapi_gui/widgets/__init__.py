@@ -1,1 +1,1 @@
-﻿"""Reusable application widgets."""
+"""Reusable application widgets."""

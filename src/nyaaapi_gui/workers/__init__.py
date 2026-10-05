@@ -1,1 +1,1 @@
-﻿"""Background workers for network requests."""
+"""Background workers for network requests."""

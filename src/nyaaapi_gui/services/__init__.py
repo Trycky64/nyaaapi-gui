@@ -1,1 +1,1 @@
-﻿"""Backend service adapters."""
+"""Backend service adapters."""
