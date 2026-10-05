@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QLabel, QProgressBar, QStatusBar
+from PySide6.QtWidgets import QLabel, QProgressBar, QStatusBar, QWidget
 
 
 class StatusWidget(QStatusBar):
     """Status bar showing network state, loading indicator, and result count."""
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.state_label = QLabel("Ready")
         self.count_label = QLabel("0 results")

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 
-from PySide6.QtCore import Qt, QThreadPool
-from PySide6.QtGui import QKeySequence, QShortcut
+from nyaaapi import SearchResults, Torrent
+from PySide6.QtCore import QPoint, Qt, QThreadPool
+from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -49,7 +51,7 @@ class MainWindow(QMainWindow):
         self._current_source = self.app_settings.source
         self._last_search_values: dict[str, object] | None = None
         self.thread_pool = QThreadPool.globalInstance()
-        self._all_torrents = []
+        self._all_torrents: list[Torrent] = []
         self._qbit_config: QBittorrentConfig | None = None
         self.setWindowTitle("NyaaAPI GUI")
         from importlib.resources import files
@@ -67,7 +69,7 @@ class MainWindow(QMainWindow):
         self.query_input = self.search_panel.query_input
         self.search_button = self.search_panel.search_button
         self.best_release_button = QPushButton("Best Release")
-        self.search_panel.layout().addRow(self.best_release_button)
+        self.search_panel.form_layout.addRow(self.best_release_button)
         self.results = ResultsTable()
         self.details = DetailsPanel()
         splitter = QSplitter()
@@ -119,7 +121,7 @@ class MainWindow(QMainWindow):
         self.search_panel.filtersChanged.connect(self.apply_local_filters)
         self.best_release_button.clicked.connect(self.select_best_release)
 
-    def _on_torrent_selected(self, torrent) -> None:
+    def _on_torrent_selected(self, torrent: Torrent | None) -> None:
         self.details.show_torrent(torrent)
         if torrent is None:
             return
@@ -162,11 +164,19 @@ class MainWindow(QMainWindow):
         }
         uploader = str(options.get("uploader") or "").strip()
         if uploader:
-            kwargs["user_name"] = uploader
-            operation = self.service.search_user
+            worker = SearchWorker(
+                self.service.search_user,
+                user_name=uploader,
+                query=kwargs["query"],
+                source=kwargs["source"],
+                category=kwargs["category"],
+                sub_category=kwargs["sub_category"],
+                sort=kwargs["sort"],
+                order=kwargs["order"],
+                page=kwargs["page"],
+            )
         else:
-            operation = self.service.search
-        worker = SearchWorker(operation, **kwargs)
+            worker = SearchWorker(self.service.search, **kwargs)
         self._active_worker = worker
         worker.signals.started.connect(self._search_started)
         worker.signals.result.connect(self._search_succeeded)
@@ -223,7 +233,7 @@ class MainWindow(QMainWindow):
     def _install_shortcuts(self) -> None:
         search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
         search_shortcut.activated.connect(self.focus_search)
-        copy_shortcut = QShortcut(QKeySequence.Copy, self)
+        copy_shortcut = QShortcut(QKeySequence.StandardKey.Copy, self)
         copy_shortcut.activated.connect(self.copy_selected_magnets_or_title)
         escape_shortcut = QShortcut(QKeySequence("Escape"), self)
         escape_shortcut.activated.connect(self.clear_or_cancel)
@@ -263,7 +273,7 @@ class MainWindow(QMainWindow):
         open_torrent.triggered.connect(self.details.open_torrent_url)
         return menu
 
-    def show_results_context_menu(self, position) -> None:
+    def show_results_context_menu(self, position: QPoint) -> None:
         self.create_results_context_menu().exec(self.results.table.viewport().mapToGlobal(position))
 
     def refresh_search(self) -> None:
@@ -282,7 +292,7 @@ class MainWindow(QMainWindow):
         self.status.set_count(0)
         self.status.set_state("Ready")
 
-    def apply_local_filters(self) -> list:
+    def apply_local_filters(self) -> list[Torrent]:
         """Filter fetched rows immediately, without a new API call."""
         visible = filter_torrents(self._all_torrents, self.search_panel.filter_options())
         self.results.set_torrents(visible)
@@ -422,7 +432,7 @@ class MainWindow(QMainWindow):
         self.status.set_state("Title copied")
         return True
 
-    def closeEvent(self, event) -> None:  # noqa: N802
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         if self._owns_service:
             self.service.close()
         super().closeEvent(event)
@@ -444,7 +454,13 @@ class MainWindow(QMainWindow):
             self.status.set_count(len(results.episodes))
             self.status.set_state("Season results updated")
             return
-        self._all_torrents = list(results)
+        if isinstance(results, SearchResults):
+            self._all_torrents = list(results.data)
+        elif isinstance(results, Sequence) and all(isinstance(item, Torrent) for item in results):
+            self._all_torrents = list(results)
+        else:
+            self._search_failed(TypeError("The search service returned unexpected results"))
+            return
         torrents = self.apply_local_filters()
         self.status.set_count(len(torrents))
         self.status.set_state("Search complete" if torrents else "No results")

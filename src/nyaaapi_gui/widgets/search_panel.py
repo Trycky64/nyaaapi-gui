@@ -88,6 +88,7 @@ class SearchPanel(QWidget):
         filters_box = QGroupBox("Local filters")
         filters_box.setLayout(filters)
         layout = QFormLayout(self)
+        self.form_layout = layout
         layout.addRow(_form_container(form))
         layout.addRow(filters_box)
         self.search_button.clicked.connect(self._emit_search)

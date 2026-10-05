@@ -20,8 +20,10 @@ class SortableItem(QTableWidgetItem):
     def __lt__(self, other: QTableWidgetItem) -> bool:
         left = self.data(Qt.ItemDataRole.UserRole)
         right = other.data(Qt.ItemDataRole.UserRole)
-        if left is not None and right is not None:
+        if isinstance(left, str) and isinstance(right, str):
             return left < right
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            return float(left) < float(right)
         return super().__lt__(other)
 
 
@@ -155,4 +157,4 @@ def _size_bytes(text: str) -> float:
         return 0
     units = {"B": 0, "KB": 1, "MB": 2, "GB": 3, "TB": 4, "KiB": 1, "MiB": 2, "GiB": 3, "TiB": 4}
     unit = parts[1] if len(parts) > 1 else "B"
-    return amount * (1024 ** units.get(unit.upper(), 0))
+    return float(amount * (1024 ** units.get(unit.upper(), 0)))

@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QLineEdit,
     QSpinBox,
+    QWidget,
 )
 
 from nyaaapi_gui.integrations.qbittorrent import QBittorrentConfig
@@ -14,7 +15,9 @@ from nyaaapi_gui.integrations.qbittorrent import QBittorrentConfig
 class QBittorrentConfigDialog(QDialog):
     """Collect qBittorrent settings without persisting the password."""
 
-    def __init__(self, config: QBittorrentConfig | None = None, parent=None) -> None:
+    def __init__(
+        self, config: QBittorrentConfig | None = None, parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         config = config or QBittorrentConfig()
         self.setWindowTitle("qBittorrent connection")

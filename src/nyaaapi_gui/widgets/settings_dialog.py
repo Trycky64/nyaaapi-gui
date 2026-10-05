@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QSpinBox,
+    QWidget,
 )
 
 from nyaaapi_gui.models.settings import AppSettings
@@ -18,7 +19,7 @@ from nyaaapi_gui.models.settings import AppSettings
 class SettingsDialog(QDialog):
     """Edit persistent search preferences and reset them to defaults."""
 
-    def __init__(self, settings: AppSettings, parent=None) -> None:
+    def __init__(self, settings: AppSettings, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("NyaaAPI GUI settings")
         self.source_combo = QComboBox()

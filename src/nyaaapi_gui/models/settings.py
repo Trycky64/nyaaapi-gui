@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from typing import cast
 
 from PySide6.QtCore import QSettings
 
@@ -33,7 +34,7 @@ class SettingsStore:
             language=self._choice(
                 "language", "Any", {"Any", "VOSTFR", "SUBFRENCH", "FRENCH", "MULTi", "RAW"}
             ),
-            exclude_multi=self._settings.value("exclude_multi", False, type=bool),
+            exclude_multi=cast(bool, self._settings.value("exclude_multi", False, type=bool)),
             minimum_seeders=self._bounded_int("minimum_seeders", 0, 0, 1_000_000),
             favorite_uploader=str(self._settings.value("favorite_uploader", "")),
             max_pages=self._bounded_int("max_pages", 10, 1, 1000),
@@ -58,14 +59,14 @@ class SettingsStore:
 
     def _bounded_int(self, key: str, default: int, minimum: int, maximum: int) -> int:
         try:
-            value = int(self._settings.value(key, default))
+            value = int(str(self._settings.value(key, default)))
         except (TypeError, ValueError):
             return default
         return min(maximum, max(minimum, value))
 
     def _bounded_float(self, key: str, default: float, minimum: float, maximum: float) -> float:
         try:
-            value = float(self._settings.value(key, default))
+            value = float(str(self._settings.value(key, default)))
         except (TypeError, ValueError):
             return default
         return min(maximum, max(minimum, value))
