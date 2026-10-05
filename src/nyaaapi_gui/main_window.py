@@ -16,6 +16,7 @@ from .integrations.qbittorrent import QBittorrentConfig, QBittorrentService
 from .models.filters import filter_torrents
 from .models.ranking import RankingPreferences, best_release, preferences_from_filters
 from .models.season import SeasonPlan, build_season_plan
+from .models.settings import AppSettings, SettingsStore
 from .services.exports import export_csv, export_json, export_magnets
 from .services.nyaa_service import NyaaService
 from .widgets.details_panel import DetailsPanel
@@ -23,6 +24,7 @@ from .widgets.qbittorrent_dialog import QBittorrentConfigDialog
 from .widgets.results_table import ResultsTable
 from .widgets.search_panel import SearchPanel
 from .widgets.season_panel import SeasonPanel
+from .widgets.settings_dialog import SettingsDialog
 from .widgets.status_bar import StatusWidget
 from .workers.search_worker import SearchWorker
 
@@ -30,9 +32,13 @@ from .workers.search_worker import SearchWorker
 class MainWindow(QMainWindow):
     """Main application window and coordinator for search widgets."""
 
-    def __init__(self, service: NyaaService | None = None) -> None:
+    def __init__(
+        self, service: NyaaService | None = None, settings: SettingsStore | None = None
+    ) -> None:
         super().__init__()
-        self.service = service or NyaaService()
+        self.settings_store = settings or SettingsStore()
+        self.app_settings = self.settings_store.load()
+        self.service = service or NyaaService(timeout=self.app_settings.api_timeout)
         self._owns_service = service is None
         self._active_worker: SearchWorker | None = None
         self.thread_pool = QThreadPool.globalInstance()
@@ -41,6 +47,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("NyaaAPI GUI")
         self.setMinimumSize(1024, 680)
         self.search_panel = SearchPanel()
+        self._apply_settings_to_controls(self.app_settings)
         self.season_panel = SeasonPanel()
         self.search_tabs = QTabWidget()
         self.search_tabs.addTab(self.search_panel, "Search")
@@ -71,6 +78,8 @@ class MainWindow(QMainWindow):
         self.export_magnets_action = toolbar.addAction("Export magnets TXT")
         self.export_json_action = toolbar.addAction("Export selected JSON")
         self.export_csv_action = toolbar.addAction("Export selected CSV")
+        self.settings_action = toolbar.addAction("Settings")
+        self.settings_action.triggered.connect(self.show_settings)
         self.qbit_config_action = toolbar.addAction("Configure qBittorrent")
         self.qbit_send_action = toolbar.addAction("Send selected to qBittorrent")
         self.qbit_send_action.setEnabled(False)
@@ -154,9 +163,11 @@ class MainWindow(QMainWindow):
     ) -> SeasonPlan:
         preferences = RankingPreferences(resolution=resolution, language=language)
         if uploader:
-            torrents = list(self.service.iter_user(uploader, anime, max_pages=10))
+            torrents = list(
+                self.service.iter_user(uploader, anime, max_pages=self.app_settings.max_pages)
+            )
         else:
-            torrents = list(self.service.iter_search(anime, max_pages=10))
+            torrents = list(self.service.iter_search(anime, max_pages=self.app_settings.max_pages))
         return build_season_plan(
             torrents,
             season=season,
@@ -244,6 +255,32 @@ class MainWindow(QMainWindow):
             return False
         self.status.set_state(f"Exported to {path}")
         return True
+
+    def show_settings(self) -> bool:
+        """Open preferences, persist accepted values and apply search defaults."""
+        dialog = SettingsDialog(self.app_settings, self)
+        if not dialog.exec():
+            return False
+        previous_timeout = self.app_settings.api_timeout
+        self.app_settings = dialog.values()
+        self.settings_store.save(self.app_settings)
+        self._apply_settings_to_controls(self.app_settings)
+        if self._owns_service and previous_timeout != self.app_settings.api_timeout:
+            self.service.close()
+            self.service = NyaaService(timeout=self.app_settings.api_timeout)
+        self.status.set_state("Settings saved")
+        return True
+
+    def _apply_settings_to_controls(self, settings: AppSettings) -> None:
+        if not hasattr(self, "search_panel"):
+            return
+        panel = self.search_panel
+        panel.source_combo.setCurrentIndex(panel.source_combo.findData(settings.source))
+        panel.resolution_filter.setCurrentText(settings.resolution)
+        panel.language_filter.setCurrentText(settings.language)
+        panel.exclude_multi.setChecked(settings.exclude_multi)
+        panel.minimum_seeders.setValue(settings.minimum_seeders)
+        panel.uploader_input.setText(settings.favorite_uploader)
 
     def configure_qbittorrent(self) -> bool:
         """Collect optional connection settings; password remains in memory."""
