@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 from nyaaapi import Torrent
 
+from .release_info import parse_release_title
+
 
 @dataclass(frozen=True, slots=True)
 class FilterOptions:
@@ -16,6 +18,8 @@ class FilterOptions:
     audio: str = "Any"
     exclude_multi: bool = False
     minimum_seeders: int = 0
+    season: int = 0
+    episode: int = 0
 
 
 def filter_torrents(torrents: list[Torrent], options: FilterOptions) -> list[Torrent]:
@@ -23,6 +27,11 @@ def filter_torrents(torrents: list[Torrent], options: FilterOptions) -> list[Tor
     filtered: list[Torrent] = []
     for torrent in torrents:
         title = torrent.title.casefold()
+        release = parse_release_title(torrent.title)
+        if options.season and release.season != options.season:
+            continue
+        if options.episode and release.episode != options.episode:
+            continue
         if options.resolution != "Any" and not _has_token(title, options.resolution):
             continue
         if options.language != "Any" and not _has_token(title, options.language):

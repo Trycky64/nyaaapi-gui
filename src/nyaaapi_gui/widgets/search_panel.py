@@ -59,6 +59,12 @@ class SearchPanel(QWidget):
         self.minimum_seeders = QSpinBox()
         self.minimum_seeders.setRange(0, 1_000_000)
         self.minimum_seeders.setPrefix("Min seeders: ")
+        self.season_filter = QSpinBox()
+        self.season_filter.setRange(0, 99)
+        self.season_filter.setPrefix("Season: ")
+        self.episode_filter = QSpinBox()
+        self.episode_filter.setRange(0, 999)
+        self.episode_filter.setPrefix("Episode: ")
         form = QFormLayout()
         form.addRow("Query", self.query_input)
         form.addRow("Source", self.source_combo)
@@ -77,6 +83,8 @@ class SearchPanel(QWidget):
         filters.addRow("Audio", self.audio_filter)
         filters.addRow(self.exclude_multi)
         filters.addRow(self.minimum_seeders)
+        filters.addRow(self.season_filter)
+        filters.addRow(self.episode_filter)
         filters_box = QGroupBox("Local filters")
         filters_box.setLayout(filters)
         layout = QFormLayout(self)
@@ -94,6 +102,8 @@ class SearchPanel(QWidget):
             combo.currentIndexChanged.connect(self.filtersChanged)
         self.exclude_multi.stateChanged.connect(self.filtersChanged)
         self.minimum_seeders.valueChanged.connect(self.filtersChanged)
+        self.season_filter.valueChanged.connect(self.filtersChanged)
+        self.episode_filter.valueChanged.connect(self.filtersChanged)
 
     def values(self) -> dict[str, object]:
         """Return only meaningful API search options."""
@@ -117,6 +127,8 @@ class SearchPanel(QWidget):
             audio=self.audio_filter.currentData(),
             exclude_multi=self.exclude_multi.isChecked(),
             minimum_seeders=self.minimum_seeders.value(),
+            season=self.season_filter.value(),
+            episode=self.episode_filter.value(),
         )
 
     def _update_mode(self, uploader: str) -> None:
@@ -142,6 +154,8 @@ class SearchPanel(QWidget):
         self.audio_filter.setCurrentIndex(0)
         self.exclude_multi.setChecked(False)
         self.minimum_seeders.setValue(0)
+        self.season_filter.setValue(0)
+        self.episode_filter.setValue(0)
         self.resetRequested.emit()
 
 

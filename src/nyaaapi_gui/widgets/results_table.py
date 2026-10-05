@@ -4,6 +4,8 @@ from nyaaapi import Torrent
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
+from nyaaapi_gui.models.release_info import parse_release_title
+
 
 class SortableItem(QTableWidgetItem):
     """Table item that sorts on its underlying value when provided."""
@@ -56,6 +58,7 @@ class ResultsTable(QWidget):
         self.table.setRowCount(len(torrents))
         for row, torrent in enumerate(torrents):
             date_text = torrent.time.isoformat(sep=" ") if torrent.time else ""
+            release = parse_release_title(torrent.title)
             values: tuple[tuple[str, object], ...] = (
                 (torrent.title, torrent.title.casefold()),
                 (torrent.category, torrent.category.casefold()),
@@ -65,6 +68,8 @@ class ResultsTable(QWidget):
                 (str(torrent.downloads), torrent.downloads),
                 (date_text, torrent.time.timestamp() if torrent.time else 0),
                 (torrent.uploader or "", (torrent.uploader or "").casefold()),
+                (str(release.season or ""), release.season or 0),
+                (str(release.episode or ""), release.episode or 0),
             )
             for column, (display, sort_value) in enumerate(values):
                 item = SortableItem(display)
