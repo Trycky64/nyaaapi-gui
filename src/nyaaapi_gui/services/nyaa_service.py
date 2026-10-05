@@ -17,6 +17,8 @@ from nyaaapi import (
     TorrentDetails,
 )
 
+from .cache import MemoryCache
+
 Source = Literal["nyaa", "sukebei"]
 
 
@@ -54,6 +56,11 @@ class NyaaService:
 
     def __init__(self, api: NyaaAPI | None = None, *, timeout: float = 15.0) -> None:
         self._api = api or NyaaAPI(timeout=timeout)
+        self._cache: MemoryCache[object] = MemoryCache()
+
+    def clear_cache(self) -> None:
+        """Remove cached searches and torrent details."""
+        self._cache.clear()
 
     def close(self) -> None:
         """Release the backend HTTP session."""
@@ -75,10 +82,15 @@ class NyaaService:
         sort: str | None = None,
         order: str | None = None,
         page: int = 1,
+        refresh: bool = False,
     ) -> SearchResults:
         """Search Nyaa or Sukebei and normalize backend exceptions."""
+        key = ("search", query, source, category, sub_category, sort, order, page)
+        cached = None if refresh else self._cache.get(key)
+        if isinstance(cached, SearchResults):
+            return cached
         try:
-            return self._api.search(
+            result = self._api.search(
                 query,
                 source=source,
                 category=category,
@@ -87,6 +99,8 @@ class NyaaService:
                 order=order,
                 page=page,
             )
+            self._cache.set(key, result)
+            return result
         except NyaaAPIError as error:
             raise _friendly_error(error) from error
 
@@ -101,10 +115,15 @@ class NyaaService:
         sort: str | None = None,
         order: str | None = None,
         page: int = 1,
+        refresh: bool = False,
     ) -> SearchResults:
         """Search a user's uploads, optionally filtered by query."""
+        key = ("user", user_name, query, source, category, sub_category, sort, order, page)
+        cached = None if refresh else self._cache.get(key)
+        if isinstance(cached, SearchResults):
+            return cached
         try:
-            return self._api.user(
+            result = self._api.user(
                 user_name,
                 query,
                 source=source,
@@ -114,13 +133,23 @@ class NyaaService:
                 order=order,
                 page=page,
             )
+            self._cache.set(key, result)
+            return result
         except NyaaAPIError as error:
             raise _friendly_error(error) from error
 
-    def get_torrent(self, torrent_id: int, *, source: Source = "nyaa") -> TorrentDetails:
+    def get_torrent(
+        self, torrent_id: int, *, source: Source = "nyaa", refresh: bool = False
+    ) -> TorrentDetails:
         """Load full details for one torrent."""
+        key = ("detail", torrent_id, source)
+        cached = None if refresh else self._cache.get(key)
+        if isinstance(cached, TorrentDetails):
+            return cached
         try:
-            return self._api.get(torrent_id, source=source)
+            result = self._api.get(torrent_id, source=source)
+            self._cache.set(key, result)
+            return result
         except NyaaAPIError as error:
             raise _friendly_error(error) from error
 
@@ -136,16 +165,24 @@ class NyaaService:
         order: str | None = None,
     ) -> Iterator[Torrent]:
         """Iterate unique search results via the backend pagination helper."""
+        key = ("iter_search", query, source, max_pages, category, sub_category, sort, order)
+        cached = self._cache.get(key)
+        if isinstance(cached, tuple):
+            return iter(cached)
         try:
-            return self._api.iter_search(
-                query,
-                source=source,
-                max_pages=max_pages,
-                category=category,
-                sub_category=sub_category,
-                sort=sort,
-                order=order,
+            result = tuple(
+                self._api.iter_search(
+                    query,
+                    source=source,
+                    max_pages=max_pages,
+                    category=category,
+                    sub_category=sub_category,
+                    sort=sort,
+                    order=order,
+                )
             )
+            self._cache.set(key, result)
+            return iter(result)
         except NyaaAPIError as error:
             raise _friendly_error(error) from error
 
@@ -162,16 +199,34 @@ class NyaaService:
         order: str | None = None,
     ) -> Iterator[Torrent]:
         """Iterate unique uploads from one user via backend pagination."""
+        key = (
+            "iter_user",
+            user_name,
+            query,
+            source,
+            max_pages,
+            category,
+            sub_category,
+            sort,
+            order,
+        )
+        cached = self._cache.get(key)
+        if isinstance(cached, tuple):
+            return iter(cached)
         try:
-            return self._api.iter_user(
-                user_name,
-                query,
-                source=source,
-                max_pages=max_pages,
-                category=category,
-                sub_category=sub_category,
-                sort=sort,
-                order=order,
+            result = tuple(
+                self._api.iter_user(
+                    user_name,
+                    query,
+                    source=source,
+                    max_pages=max_pages,
+                    category=category,
+                    sub_category=sub_category,
+                    sort=sort,
+                    order=order,
+                )
             )
+            self._cache.set(key, result)
+            return iter(result)
         except NyaaAPIError as error:
             raise _friendly_error(error) from error

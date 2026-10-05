@@ -36,6 +36,8 @@ def test_user_and_details_route_through_backend() -> None:
 
 def test_iterators_route_through_backend() -> None:
     api = Mock()
+    api.iter_search.return_value = []
+    api.iter_user.return_value = []
     service = NyaaService(api)
     service.iter_search("Anime", max_pages=2)
     service.iter_user("uploader", max_pages=3)

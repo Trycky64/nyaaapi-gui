@@ -47,6 +47,7 @@ class MainWindow(QMainWindow):
         self._active_worker: SearchWorker | None = None
         self._detail_worker: SearchWorker | None = None
         self._current_source = self.app_settings.source
+        self._last_search_values: dict[str, object] | None = None
         self.thread_pool = QThreadPool.globalInstance()
         self._all_torrents = []
         self._qbit_config: QBittorrentConfig | None = None
@@ -91,6 +92,8 @@ class MainWindow(QMainWindow):
         self.export_csv_action = toolbar.addAction("Export selected CSV")
         self.settings_action = toolbar.addAction("Settings")
         self.settings_action.triggered.connect(self.show_settings)
+        self.refresh_action = toolbar.addAction("Refresh")
+        self.refresh_action.triggered.connect(self.refresh_search)
         self.qbit_config_action = toolbar.addAction("Configure qBittorrent")
         self.qbit_send_action = toolbar.addAction("Send selected to qBittorrent")
         self.qbit_send_action.setEnabled(False)
@@ -146,6 +149,7 @@ class MainWindow(QMainWindow):
         if self._active_worker is not None:
             return
         options = values or self.search_panel.values()
+        self._last_search_values = dict(options)
         self._current_source = str(options.get("source", "nyaa"))
         kwargs = {
             "query": options.get("query"),
@@ -261,6 +265,14 @@ class MainWindow(QMainWindow):
 
     def show_results_context_menu(self, position) -> None:
         self.create_results_context_menu().exec(self.results.table.viewport().mapToGlobal(position))
+
+    def refresh_search(self) -> None:
+        """Clear the service cache and repeat the last search against the API."""
+        if self._last_search_values is None:
+            self.status.set_state("Search before refreshing")
+            return
+        self.service.clear_cache()
+        self.start_search(self._last_search_values)
 
     def reset_results(self) -> None:
         """Clear search rows and details after the search form resets."""
