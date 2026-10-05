@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QThreadPool
-from PySide6.QtWidgets import QMainWindow, QPushButton, QSplitter, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QMainWindow, QPushButton, QSplitter, QTabWidget, QVBoxLayout, QWidget
 
 from .models.filters import filter_torrents
-from .models.ranking import best_release, preferences_from_filters
+from .models.ranking import RankingPreferences, best_release, preferences_from_filters
+from .models.season import SeasonPlan, build_season_plan
 from .services.nyaa_service import NyaaService
 from .widgets.details_panel import DetailsPanel
 from .widgets.results_table import ResultsTable
 from .widgets.search_panel import SearchPanel
+from .widgets.season_panel import SeasonPanel
 from .widgets.status_bar import StatusWidget
 from .workers.search_worker import SearchWorker
 
@@ -26,6 +28,10 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("NyaaAPI GUI")
         self.setMinimumSize(1024, 680)
         self.search_panel = SearchPanel()
+        self.season_panel = SeasonPanel()
+        self.search_tabs = QTabWidget()
+        self.search_tabs.addTab(self.search_panel, "Search")
+        self.search_tabs.addTab(self.season_panel, "Season mode")
         self.query_input = self.search_panel.query_input
         self.search_button = self.search_panel.search_button
         self.best_release_button = QPushButton("Best Release")
@@ -38,7 +44,7 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.details)
         splitter.setSizes([440, 180])
         layout = QVBoxLayout()
-        layout.addWidget(self.search_panel)
+        layout.addWidget(self.search_tabs)
         layout.addWidget(splitter, 1)
         central = QWidget()
         central.setLayout(layout)
@@ -47,6 +53,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status)
         self.results.torrentSelected.connect(self.details.show_torrent)
         self.search_panel.searchRequested.connect(self.start_search)
+        self.season_panel.searchRequested.connect(self.start_season_search)
         self.search_panel.resetRequested.connect(self.reset_results)
         self.search_panel.filtersChanged.connect(self.apply_local_filters)
         self.best_release_button.clicked.connect(self.select_best_release)
@@ -80,6 +87,48 @@ class MainWindow(QMainWindow):
         self.search_button.setEnabled(False)
         self.status.set_state("Searching...")
         self.thread_pool.start(worker)
+
+    def start_season_search(self, values: dict[str, object]) -> None:
+        """Search multiple pages for one season without blocking the UI."""
+        if self._active_worker is not None:
+            return
+        if not values.get("anime"):
+            self.status.set_state("Enter an anime title")
+            return
+        kwargs = dict(values)
+        worker = SearchWorker(self._load_season, **kwargs)
+        self._active_worker = worker
+        worker.signals.started.connect(self._search_started)
+        worker.signals.result.connect(self._search_succeeded)
+        worker.signals.error.connect(self._search_failed)
+        worker.signals.finished.connect(self._search_finished)
+        self.search_button.setEnabled(False)
+        self.season_panel.search_button.setEnabled(False)
+        self.status.set_state("Searching season...")
+        self.thread_pool.start(worker)
+
+    def _load_season(
+        self,
+        anime: str,
+        season: int,
+        uploader: str | None,
+        resolution: str,
+        language: str,
+        start_episode: int,
+        end_episode: int,
+    ) -> SeasonPlan:
+        preferences = RankingPreferences(resolution=resolution, language=language)
+        if uploader:
+            torrents = list(self.service.iter_user(uploader, anime, max_pages=10))
+        else:
+            torrents = list(self.service.iter_search(anime, max_pages=10))
+        return build_season_plan(
+            torrents,
+            season=season,
+            start_episode=start_episode,
+            end_episode=end_episode,
+            preferences=preferences,
+        )
 
     def reset_results(self) -> None:
         """Clear search rows and details after the search form resets."""
@@ -128,6 +177,18 @@ class MainWindow(QMainWindow):
         self.status.set_state("Searching...")
 
     def _search_succeeded(self, results: object) -> None:
+        if isinstance(results, SeasonPlan):
+            self._all_torrents = list(results.torrents)
+            self.results.set_torrents(list(results.torrents))
+            self.season_panel.show_plan(
+                len(results.episodes),
+                results.expected_count,
+                results.season,
+                results.missing_episodes,
+            )
+            self.status.set_count(len(results.episodes))
+            self.status.set_state("Season results updated")
+            return
         self._all_torrents = list(results)
         torrents = self.apply_local_filters()
         self.status.set_count(len(torrents))
@@ -138,4 +199,5 @@ class MainWindow(QMainWindow):
 
     def _search_finished(self) -> None:
         self.search_button.setEnabled(True)
+        self.season_panel.search_button.setEnabled(True)
         self._active_worker = None
