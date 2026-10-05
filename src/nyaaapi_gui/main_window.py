@@ -180,7 +180,7 @@ class MainWindow(QMainWindow):
         """Search multiple pages for one season without blocking the UI."""
         if self._active_worker is not None:
             return
-        if not values.get("anime"):
+        if not str(values.get("anime", "")).strip():
             self.status.set_state("Enter an anime title")
             return
         kwargs = dict(values)
