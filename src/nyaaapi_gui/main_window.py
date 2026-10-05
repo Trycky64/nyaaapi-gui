@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, QThreadPool
 from PySide6.QtWidgets import QMainWindow, QSplitter, QVBoxLayout, QWidget
 
+from .models.filters import filter_torrents
 from .services.nyaa_service import NyaaService
 from .widgets.details_panel import DetailsPanel
 from .widgets.results_table import ResultsTable
@@ -20,6 +21,7 @@ class MainWindow(QMainWindow):
         self._owns_service = service is None
         self._active_worker: SearchWorker | None = None
         self.thread_pool = QThreadPool.globalInstance()
+        self._all_torrents = []
         self.setWindowTitle("NyaaAPI GUI")
         self.setMinimumSize(1024, 680)
         self.search_panel = SearchPanel()
@@ -43,6 +45,7 @@ class MainWindow(QMainWindow):
         self.results.torrentSelected.connect(self.details.show_torrent)
         self.search_panel.searchRequested.connect(self.start_search)
         self.search_panel.resetRequested.connect(self.reset_results)
+        self.search_panel.filtersChanged.connect(self.apply_local_filters)
 
     def start_search(self, values: dict[str, object] | None = None) -> None:
         """Run the current search in the global Qt thread pool."""
@@ -76,10 +79,20 @@ class MainWindow(QMainWindow):
 
     def reset_results(self) -> None:
         """Clear search rows and details after the search form resets."""
+        self._all_torrents = []
         self.results.set_torrents([])
         self.details.show_torrent(None)
         self.status.set_count(0)
         self.status.set_state("Ready")
+
+    def apply_local_filters(self) -> list:
+        """Filter fetched rows immediately, without a new API call."""
+        visible = filter_torrents(self._all_torrents, self.search_panel.filter_options())
+        self.results.set_torrents(visible)
+        self.status.set_count(len(visible))
+        if self._all_torrents and not visible:
+            self.status.set_state("No results match the local filters")
+        return visible
 
     def copy_current_title(self) -> bool:
         """Copy the selected torrent title to the system clipboard."""
@@ -101,8 +114,8 @@ class MainWindow(QMainWindow):
         self.status.set_state("Searching...")
 
     def _search_succeeded(self, results: object) -> None:
-        torrents = list(results)
-        self.results.set_torrents(torrents)
+        self._all_torrents = list(results)
+        torrents = self.apply_local_filters()
         self.status.set_count(len(torrents))
         self.status.set_state("Search complete" if torrents else "No results")
 

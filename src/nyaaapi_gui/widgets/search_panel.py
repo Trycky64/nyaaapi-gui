@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFormLayout,
+    QGroupBox,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -11,12 +13,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from nyaaapi_gui.models.filters import FilterOptions
+
 
 class SearchPanel(QWidget):
     """Reusable controls for Nyaa and Sukebei searches."""
 
     searchRequested = Signal(object)
     resetRequested = Signal()
+    filtersChanged = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -46,7 +51,15 @@ class SearchPanel(QWidget):
         self.search_button = QPushButton("Search")
         self.search_button.setObjectName("searchButton")
         self.reset_button = QPushButton("Reset")
-        form = QFormLayout(self)
+        self.resolution_filter = _combo("Any", "2160p", "1080p", "720p", "480p")
+        self.language_filter = _combo("Any", "VOSTFR", "SUBFRENCH", "FRENCH", "MULTi", "RAW")
+        self.codec_filter = _combo("Any", "H.264 / x264", "H.265 / HEVC / x265", "AV1")
+        self.audio_filter = _combo("Any", "AAC", "Opus", "FLAC")
+        self.exclude_multi = QCheckBox("Exclude MULTi")
+        self.minimum_seeders = QSpinBox()
+        self.minimum_seeders.setRange(0, 1_000_000)
+        self.minimum_seeders.setPrefix("Min seeders: ")
+        form = QFormLayout()
         form.addRow("Query", self.query_input)
         form.addRow("Source", self.source_combo)
         form.addRow("Uploader", self.uploader_input)
@@ -57,9 +70,30 @@ class SearchPanel(QWidget):
         form.addRow("Order", self.order_combo)
         form.addRow("Page", self.page_input)
         form.addRow(self.search_button, self.reset_button)
+        filters = QFormLayout()
+        filters.addRow("Resolution", self.resolution_filter)
+        filters.addRow("Language / tag", self.language_filter)
+        filters.addRow("Codec", self.codec_filter)
+        filters.addRow("Audio", self.audio_filter)
+        filters.addRow(self.exclude_multi)
+        filters.addRow(self.minimum_seeders)
+        filters_box = QGroupBox("Local filters")
+        filters_box.setLayout(filters)
+        layout = QFormLayout(self)
+        layout.addRow(_form_container(form))
+        layout.addRow(filters_box)
         self.search_button.clicked.connect(self._emit_search)
         self.query_input.returnPressed.connect(self._emit_search)
         self.reset_button.clicked.connect(self._reset)
+        for combo in (
+            self.resolution_filter,
+            self.language_filter,
+            self.codec_filter,
+            self.audio_filter,
+        ):
+            combo.currentIndexChanged.connect(self.filtersChanged)
+        self.exclude_multi.stateChanged.connect(self.filtersChanged)
+        self.minimum_seeders.valueChanged.connect(self.filtersChanged)
 
     def values(self) -> dict[str, object]:
         """Return only meaningful API search options."""
@@ -73,6 +107,17 @@ class SearchPanel(QWidget):
             "order": self.order_combo.currentData(),
             "page": self.page_input.value(),
         }
+
+    def filter_options(self) -> FilterOptions:
+        """Return the current local-only filter selection."""
+        return FilterOptions(
+            resolution=self.resolution_filter.currentData(),
+            language=self.language_filter.currentData(),
+            codec=self.codec_filter.currentData(),
+            audio=self.audio_filter.currentData(),
+            exclude_multi=self.exclude_multi.isChecked(),
+            minimum_seeders=self.minimum_seeders.value(),
+        )
 
     def _update_mode(self, uploader: str) -> None:
         self.mode_label.setText(
@@ -91,4 +136,23 @@ class SearchPanel(QWidget):
         self.sort_combo.setCurrentIndex(0)
         self.order_combo.setCurrentIndex(0)
         self.page_input.setValue(1)
+        self.resolution_filter.setCurrentIndex(0)
+        self.language_filter.setCurrentIndex(0)
+        self.codec_filter.setCurrentIndex(0)
+        self.audio_filter.setCurrentIndex(0)
+        self.exclude_multi.setChecked(False)
+        self.minimum_seeders.setValue(0)
         self.resetRequested.emit()
+
+
+def _combo(*values: str) -> QComboBox:
+    combo = QComboBox()
+    for value in values:
+        combo.addItem(value, value)
+    return combo
+
+
+def _form_container(form: QFormLayout) -> QWidget:
+    widget = QWidget()
+    widget.setLayout(form)
+    return widget
