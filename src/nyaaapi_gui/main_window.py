@@ -12,12 +12,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .integrations.qbittorrent import QBittorrentConfig, QBittorrentService
 from .models.filters import filter_torrents
 from .models.ranking import RankingPreferences, best_release, preferences_from_filters
 from .models.season import SeasonPlan, build_season_plan
 from .services.exports import export_csv, export_json, export_magnets
 from .services.nyaa_service import NyaaService
 from .widgets.details_panel import DetailsPanel
+from .widgets.qbittorrent_dialog import QBittorrentConfigDialog
 from .widgets.results_table import ResultsTable
 from .widgets.search_panel import SearchPanel
 from .widgets.season_panel import SeasonPanel
@@ -35,6 +37,7 @@ class MainWindow(QMainWindow):
         self._active_worker: SearchWorker | None = None
         self.thread_pool = QThreadPool.globalInstance()
         self._all_torrents = []
+        self._qbit_config: QBittorrentConfig | None = None
         self.setWindowTitle("NyaaAPI GUI")
         self.setMinimumSize(1024, 680)
         self.search_panel = SearchPanel()
@@ -68,11 +71,21 @@ class MainWindow(QMainWindow):
         self.export_magnets_action = toolbar.addAction("Export magnets TXT")
         self.export_json_action = toolbar.addAction("Export selected JSON")
         self.export_csv_action = toolbar.addAction("Export selected CSV")
+        self.qbit_config_action = toolbar.addAction("Configure qBittorrent")
+        self.qbit_send_action = toolbar.addAction("Send selected to qBittorrent")
+        self.qbit_send_action.setEnabled(False)
         self.copy_selected_action.triggered.connect(self.copy_selected_magnets)
         self.copy_visible_action.triggered.connect(self.copy_visible_magnets)
         self.export_magnets_action.triggered.connect(self.save_magnets)
         self.export_json_action.triggered.connect(self.save_json)
         self.export_csv_action.triggered.connect(self.save_csv)
+        self.qbit_config_action.triggered.connect(self.configure_qbittorrent)
+        self.qbit_send_action.triggered.connect(self.send_selected_to_qbittorrent)
+        self.results.table.itemSelectionChanged.connect(
+            lambda: self.qbit_send_action.setEnabled(
+                bool(self.results.selected_torrents()) and self._qbit_config is not None
+            )
+        )
         self.results.torrentSelected.connect(self.details.show_torrent)
         self.search_panel.searchRequested.connect(self.start_search)
         self.season_panel.searchRequested.connect(self.start_season_search)
@@ -231,6 +244,37 @@ class MainWindow(QMainWindow):
             return False
         self.status.set_state(f"Exported to {path}")
         return True
+
+    def configure_qbittorrent(self) -> bool:
+        """Collect optional connection settings; password remains in memory."""
+        dialog = QBittorrentConfigDialog(self._qbit_config, self)
+        if not dialog.exec():
+            return False
+        self._qbit_config = dialog.config()
+        self.qbit_send_action.setEnabled(bool(self.results.selected_torrents()))
+        self.status.set_state("qBittorrent configured for this session")
+        return True
+
+    def send_selected_to_qbittorrent(self) -> None:
+        """Send selected magnets to qBittorrent in a worker thread."""
+        if self._qbit_config is None:
+            self.status.set_state("Configure qBittorrent first")
+            return
+        magnets = [torrent.magnet for torrent in self.results.selected_torrents()]
+        if not magnets:
+            self.status.set_state("Select at least one result")
+            return
+        service = QBittorrentService(self._qbit_config)
+        self.qbit_send_action.setEnabled(False)
+        worker = SearchWorker(service.send_many, magnets=magnets)
+        self._active_worker = worker
+        worker.signals.result.connect(
+            lambda count: self.status.set_state(f"Sent {count} torrent(s) to qBittorrent")
+        )
+        worker.signals.error.connect(lambda error: self.status.set_state(str(error)))
+        worker.signals.finished.connect(self._search_finished)
+        self.status.set_state("Sending to qBittorrent...")
+        self.thread_pool.start(worker)
 
     def copy_current_title(self) -> bool:
         """Copy the selected torrent title to the system clipboard."""
