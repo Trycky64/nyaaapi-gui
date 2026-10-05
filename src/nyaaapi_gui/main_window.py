@@ -1,11 +1,21 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QThreadPool
-from PySide6.QtWidgets import QMainWindow, QPushButton, QSplitter, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QMainWindow,
+    QPushButton,
+    QSplitter,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .models.filters import filter_torrents
 from .models.ranking import RankingPreferences, best_release, preferences_from_filters
 from .models.season import SeasonPlan, build_season_plan
+from .services.exports import export_csv, export_json, export_magnets
 from .services.nyaa_service import NyaaService
 from .widgets.details_panel import DetailsPanel
 from .widgets.results_table import ResultsTable
@@ -51,6 +61,18 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         self.status = StatusWidget(self)
         self.setStatusBar(self.status)
+        toolbar = self.addToolBar("Export")
+        toolbar.setMovable(False)
+        self.copy_selected_action = toolbar.addAction("Copy selected magnets")
+        self.copy_visible_action = toolbar.addAction("Copy all visible magnets")
+        self.export_magnets_action = toolbar.addAction("Export magnets TXT")
+        self.export_json_action = toolbar.addAction("Export selected JSON")
+        self.export_csv_action = toolbar.addAction("Export selected CSV")
+        self.copy_selected_action.triggered.connect(self.copy_selected_magnets)
+        self.copy_visible_action.triggered.connect(self.copy_visible_magnets)
+        self.export_magnets_action.triggered.connect(self.save_magnets)
+        self.export_json_action.triggered.connect(self.save_json)
+        self.export_csv_action.triggered.connect(self.save_csv)
         self.results.torrentSelected.connect(self.details.show_torrent)
         self.search_panel.searchRequested.connect(self.start_search)
         self.season_panel.searchRequested.connect(self.start_season_search)
@@ -157,6 +179,59 @@ class MainWindow(QMainWindow):
         if selected is not None:
             self.status.set_state(f"Best release: {selected.title}")
 
+    def copy_selected_magnets(self) -> int:
+        """Copy selected magnets to the clipboard in visible row order."""
+        torrents = self.results.selected_torrents()
+        if torrents:
+            QApplication.clipboard().setText(export_magnets(torrents))
+            self.status.set_state(f"Copied {len(torrents)} magnets")
+        return len(torrents)
+
+    def copy_visible_magnets(self) -> int:
+        """Copy every currently visible magnet to the clipboard."""
+        torrents = self.results.visible_torrents()
+        if torrents:
+            QApplication.clipboard().setText(export_magnets(torrents))
+            self.status.set_state(f"Copied {len(torrents)} magnets")
+        return len(torrents)
+
+    def save_magnets(self) -> bool:
+        """Choose a path and export all visible magnets as a text file."""
+        path, _filter = QFileDialog.getSaveFileName(
+            self, "Export magnets", "magnets.txt", "Text files (*.txt)"
+        )
+        return self._save_text(path, export_magnets(self.results.visible_torrents()))
+
+    def save_json(self) -> bool:
+        """Choose a path and export selected results as JSON."""
+        path, _filter = QFileDialog.getSaveFileName(
+            self, "Export results", "torrents.json", "JSON files (*.json)"
+        )
+        if not path:
+            return False
+        return self._save_text(path, export_json(self.results.selected_torrents()))
+
+    def save_csv(self) -> bool:
+        """Choose a path and export selected results as CSV."""
+        path, _filter = QFileDialog.getSaveFileName(
+            self, "Export results", "torrents.csv", "CSV files (*.csv)"
+        )
+        if not path:
+            return False
+        return self._save_text(path, export_csv(self.results.selected_torrents()))
+
+    def _save_text(self, path: str, content: str) -> bool:
+        if not path:
+            return False
+        try:
+            with open(path, "w", encoding="utf-8", newline="") as output:
+                output.write(content)
+        except OSError as error:
+            self.status.set_state(f"Export failed: {error}")
+            return False
+        self.status.set_state(f"Exported to {path}")
+        return True
+
     def copy_current_title(self) -> bool:
         """Copy the selected torrent title to the system clipboard."""
         title = self.results.copy_title()
@@ -180,6 +255,7 @@ class MainWindow(QMainWindow):
         if isinstance(results, SeasonPlan):
             self._all_torrents = list(results.torrents)
             self.results.set_torrents(list(results.torrents))
+            self.results.table.sortItems(9, Qt.SortOrder.AscendingOrder)
             self.season_panel.show_plan(
                 len(results.episodes),
                 results.expected_count,
